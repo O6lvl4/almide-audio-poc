@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Almide Audio PoC</title>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --card: #16213e;
+      --line: #0f3460;
+      --mut: #8899aa;
+      --txt: #eef0f4;
+      --accent: #e94560;
+      --accent2: #533483;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: var(--bg);
+      color: var(--txt);
+      font: 14px -apple-system, system-ui, sans-serif;
+    }
+    .card {
+      background: var(--card);
+      padding: 36px 44px;
+      border-radius: 14px;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.55);
+      min-width: 420px;
+      max-width: 520px;
+    }
+    h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; letter-spacing: -0.2px; }
+    .sub { color: var(--mut); margin-bottom: 28px; font-size: 12px; }
+    .sub code { background: var(--line); padding: 2px 6px; border-radius: 3px; }
+
+    .row { display: flex; align-items: center; gap: 14px; margin: 14px 0; }
+    .row label { width: 110px; color: var(--mut); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .row input[type=range] { flex: 1; accent-color: var(--accent); }
+    .row .val { width: 72px; text-align: right; font-variant-numeric: tabular-nums; color: var(--txt); }
+
+    .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+    button {
+      background: var(--accent);
+      color: white;
+      border: 0;
+      padding: 11px 28px;
+      font-size: 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+    button:hover { filter: brightness(1.1); }
+    button.stop { background: var(--accent2); }
+
+    .status {
+      margin-top: 22px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: var(--line);
+      font-size: 11px;
+      color: var(--mut);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      min-height: 16px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .status .ok  { color: #7ddfa7; }
+    .status .err { color: #ff7b8a; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Almide Audio PoC</h1>
+    <div class="sub">Almide <code>.almd</code> → WASM → AudioWorklet → Speakers</div>
+
+    <div class="row">
+      <label>Frequency</label>
+      <input id="freq" type="range" min="55" max="880" value="220" step="1">
+      <span class="val" id="freq-val">220 Hz</span>
+    </div>
+    <div class="row">
+      <label>Harmonics</label>
+      <input id="harm" type="range" min="1" max="32" value="8" step="1">
+      <span class="val" id="harm-val">8</span>
+    </div>
+    <div class="row">
+      <label>Volume</label>
+      <input id="vol" type="range" min="0" max="100" value="40" step="1">
+      <span class="val" id="vol-val">40%</span>
+    </div>
+
+    <div class="actions">
+      <button id="play">Play</button>
+    </div>
+
+    <div class="status" id="status">idle</div>
+  </div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

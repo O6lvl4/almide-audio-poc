@@ -1,0 +1,61 @@
+// audio-poc — prove that Almide → WASM → AudioWorklet actually rings
+//
+// A minimal additive synthesizer. Pure computation, zero allocation, zero IO.
+// The AudioWorkletProcessor calls synth_sample() once per audio sample
+// (48000 times per second, 128 samples per process() callback).
+//
+// Why this file is the smallest useful PoC:
+//   - proves top-level fn is exported to WASM and callable from JS
+//   - proves @extern(wasm, ...) host imports work from AudioWorkletGlobalScope
+//   - proves Almide direct WASM emit (no wasm-bindgen) loads in a worklet
+//   - proves the no-alloc discipline the audio thread demands
+
+// ── Host-provided math ─────────────────────────────
+// AudioWorkletGlobalScope has Math.sin natively. Almide's direct WASM
+// emit does NOT ship transcendental math in the runtime (same choice
+// obsid made), so we import sin from the host.
+
+@extern(wasm, "webaudio", "sin")
+fn sin(x: Float) -> Float
+
+// ── Entry point ────────────────────────────────────
+// Called by `_start` right after instantiation. No setup needed: all
+// audio state lives on the JS side for this PoC.
+
+effect fn main() -> Unit = {}
+
+// ── Smoke test ─────────────────────────────────────
+// JS calls this right after loading to verify FFI works before wiring
+// audio. Returning 42.0 directly (no Result wrapping) confirms the
+// full pipeline: bytes → compile → instantiate → call → value passes
+// back as a primitive.
+//
+// Note: plain `fn` (not `effect fn`) — effect fn wraps returns in a
+// Result struct and hands back a pointer, which breaks direct FFI.
+// `pub` makes it a module export, which Almide's WASM codegen turns
+// into a direct WASM export.
+
+pub fn hello() -> Float = 42.0
+
+// ── Synth core ─────────────────────────────────────
+// Sum of N sine harmonics with 1/k amplitude. Approximates a sawtooth.
+// Pure function: no IO, no allocation, no global state. Therefore safe
+// to call from AudioWorklet.process() without glitching.
+//
+// Everything is `Float` (not `Int`) because Almide's `Int` maps to
+// WASM i64, which JS WebAssembly requires to pass as BigInt. Keeping
+// `harmonics` as Float sidesteps the per-sample BigInt tax entirely.
+//
+// Future: a `@realtime` effect marker would let the compiler *prove*
+// this has none of the audio-thread-forbidden effects. For now it's
+// true by construction.
+
+pub fn synth_sample(phase: Float, harmonics: Float) -> Float = {
+  var i = 1.0
+  var s = 0.0
+  while i <= harmonics {
+    s = s + sin(phase * i) / i
+    i = i + 1.0
+  }
+  s * 0.15
+}

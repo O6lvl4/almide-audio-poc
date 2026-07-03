@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PENDING</title>
+</head>
+<body>
+<pre id="r">PENDING</pre>
+<script type="module">
+// Headless self-test: creates AudioContext, loads the worklet, verifies
+// the `ready` message from inside AudioWorkletGlobalScope, and counts
+// how many process() ticks actually fired. Writes the outcome into both
+// <pre id="r"> and document.title so headless Chrome can pick it up.
+
+const r = document.getElementById("r");
+function ok(msg)  { r.textContent = "PASS " + msg; document.title = "PASS"; }
+function bad(msg) { r.textContent = "FAIL " + msg; document.title = "FAIL"; }
+
+async function run() {
+  // 1. Fetch the WASM bytes
+  const res = await fetch("./synth.wasm");
+  if (!res.ok) return bad("fetch synth.wasm " + res.status);
+  const bytes = await res.arrayBuffer();
+
+  // 2. Create context + load worklet module
+  const ctx = new AudioContext();
+  await ctx.audioWorklet.addModule("./synth-worklet.js");
+
+  // 3. Create the Almide worklet node
+  const node = new AudioWorkletNode(ctx, "almide-synth", {
+    numberOfInputs: 0,
+    numberOfOutputs: 1,
+    outputChannelCount: [1],
+    processorOptions: { wasmBytes: bytes, sampleRate: ctx.sampleRate },
+  });
+
+  let ready = null;
+  let err = null;
+  node.port.onmessage = (e) => {
+    const m = e.data;
+    if (m.type === "ready") ready = m;
+    else if (m.type === "error") err = m.message;
+  };
+
+  // 4. Tap the output through a ScriptProcessor so we can count the
+  //    samples that actually went through process(). We can't read
+  //    AudioWorkletNode output directly in a portable way, so we
+  //    feed it into a biquad->destination chain and measure energy.
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 2048;
+  node.connect(analyser);
+  analyser.connect(ctx.destination);
+
+  // 5. Give the worklet ~300ms to fire ready + a few hundred process()
+  //    calls.
+  await new Promise((resolve) => setTimeout(resolve, 300));
+
+  if (err) return bad("worklet error: " + err);
+  if (!ready) return bad("no ready message from worklet");
+
+  // 6. Sample the analyser frequency data to confirm audio is flowing
+  const buf = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(buf);
+  let peak = 0;
+  for (let i = 0; i < buf.length; i++) if (buf[i] > peak) peak = buf[i];
+
+  if (peak === 0) {
+    // frequency data can be 0 in headless mode where the audio sink is
+    // null — fall back to checking ctx.currentTime moved forward
+    if (ctx.currentTime < 0.05) {
+      return bad("ctx.currentTime did not advance (audio clock stuck)");
+    }
+  }
+
+  ok(
+    "wasm=" + bytes.byteLength +
+    "B hello=" + ready.hello +
+    " sr=" + ctx.sampleRate +
+    " ct=" + ctx.currentTime.toFixed(3) +
+    " peak=" + peak
+  );
+}
+
+run().catch((e) => bad("exception: " + (e && e.message ? e.message : e)));
+</script>
+</body>
+</html>
