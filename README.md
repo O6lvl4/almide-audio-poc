@@ -113,7 +113,7 @@ effect fn synth_sample(phase: Float, harmonics: Int) -> Float = {
   var i = 1
   var s = 0.0
   while i <= harmonics {
-    let k = int.to_float(i)
+    let k = float.from(i)
     s = s + sin(phase * k) / k
     i = i + 1
   }
@@ -204,7 +204,7 @@ hot path. BigInt conversion at 48,000 calls/sec is measurable overhead
 pub fn synth_sample(phase: Float, harmonics: Float) -> Float = ...
 ```
 
-The in-function loop uses `var i: Float` too, so no `int.to_float`
+The in-function loop uses `var i: Float` too, so no `float.from`
 conversion is needed.
 
 ### WASI imports Almide emits even for pure programs
